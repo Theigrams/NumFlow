@@ -1,8 +1,9 @@
-# %%n
+#%%
+from typing import List
 import numpy as np
-# import numflow as nf
-
-
+from .Demo_Matrix import Mat
+from .Demo_Graph import Graph, default_graph
+#%%
 class Node():
     """
     c = a + b
@@ -15,10 +16,10 @@ class Node():
         self.need_save = kargs.get('need_save', True)
         self.gen_node_name(**kargs)
 
-        self.parents = list(parents)
-        self.children = []
-        self.value = None
-        self.jacobi = None
+        self.parents: List['Node'] = list(parents)
+        self.children: List['Node'] = []
+        self.value : Mat = None
+        self.jacobi : Mat = None
 
         # 将该节点插入到其父节点的子节点列表中
         for parent in self.parents:
@@ -64,8 +65,9 @@ class Node():
         for parent in self.parents:
             self.value += parent.value
         """
+        pass
 
-    def backward(self, result):
+    def backward(self, result: 'Node'):
         """
         result 为一个向量
         返回 node 关于 result 的 jacobi 矩阵
@@ -87,7 +89,7 @@ class Node():
         return self.jacobi
 
     @abc.abstractmethod
-    def get_jacobi(self, parent):
+    def get_jacobi(self, parent: 'Node'):
         """
         抽象方法
         举例:
@@ -95,6 +97,7 @@ class Node():
         c.get_jbc(a):
             return 2*np.diag(parent.value)
         """
+        pass
 
     def clear_jacobi(self):
         self.jacobi = None
@@ -108,7 +111,7 @@ class Node():
     def shape(self):
         return self.value.shape
 
-    def reset_value(self, recursive=True):
+    def reset_value(self, recursive: bool = True):
         """
         重置该节点处的值
         """
@@ -116,4 +119,31 @@ class Node():
         if recursive:
             for child in self.children:
                 child.reset_value()
+
+#%%
+class Variable(Node):
+    """
+    变量节点
+    暂时不知道用来干嘛
+    """
+    def __init__(self, dim, init=False,trainalbe=True , **kargs) -> None:
+        super().__init__( **kargs)
+        self.dim = dim
+
+        # 如果数据需要初始化，那么初始化为高斯分布
+        if init:
+            self.value=np.random.normal(0,0.001,self.dim)
+        
+        # 设置变量是否参与训练
+        self.trainable = trainalbe
+    
+    def set_value(self,value):
+        assert isinstance(value, Mat) and value.shape == self.dim
+
+        # 若本节点的值被修改，则也修改下游节点的值
+        # 感觉岂不是会重复修改很多次
+        # 也不一定，可能会在 node.compute 里重新计算
+        self.reset_value()
+        self.value = value
+        
 
